@@ -29,15 +29,33 @@ export default function LoginComponent() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    try {
-      // Simular chamada de API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast.success('Bem-vindo de volta à Bibliotech!');
-      console.log('Dados do login:', data);
-    } catch (error) {
-      toast.error('Erro ao fazer login. Tente novamente.');
-    }
+    const loginPromise = fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }).then(async (response) => {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao fazer login');
+      }
+      return response.json();
+    });
+
+    toast.promise(loginPromise, {
+      loading: 'Entrando...',
+      success: (result) => {
+        console.log('Login realizado com sucesso:', result);
+        // Aqui você pode redirecionar o usuário ou salvar o token
+        // Exemplo: router.push('/dashboard');
+        return 'Bem-vindo de volta à Bibliotech!';
+      },
+      error: (error) => {
+        console.error('Erro no login:', error);
+        return error instanceof Error ? error.message : 'Erro ao fazer login. Tente novamente.';
+      },
+    });
   };
 
   return (
