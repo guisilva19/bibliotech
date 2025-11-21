@@ -1,20 +1,26 @@
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-background">
       {/* SIDEBAR */}
-      <aside className="w-64 bg-white shadow-lg p-6">
-        <h2 className="text-2xl font-bold mb-6">Bibliotech</h2>
+      <aside className="w-64 bg-surface shadow-xl p-6 border-r border-primary/20">
+        <h1 className="text-2xl font-bold text-primary mb-8">Bibliotech</h1>
 
         <nav className="space-y-4">
-          <a href="/dashboard" className="block text-gray-700 hover:text-teal-600">🏠 Início</a>
-          <a href="/dashboard/livros" className="block text-gray-700 hover:text-teal-600">📚 Livros</a>
-          <a href="/dashboard/usuarios" className="block text-gray-700 hover:text-teal-600">👤 Usuários</a>
-          <a href="/dashboard/emprestimos" className="block text-gray-700 hover:text-teal-600">🔄 Empréstimos</a>
+          <a className="block text-text hover:text-primary" href="/dashboard">🏠 Início</a>
+          <a className="block text-text hover:text-primary" href="/dashboard/livros">📚 Livros</a>
+          {/* <a className="block text-text hover:text-primary" href="/dashboard/usuarios">👤 Usuários</a> */}
+          <a className="block text-text hover:text-primary" href="/dashboard/emprestimos">🔄 Empréstimos</a>
         </nav>
       </aside>
 
       {/* CONTEÚDO */}
-      <main className="flex-1 p-10">{children}</main>
+      <main className="flex-1 bg-surface p-10 shadow-inner">
+        {children}
+      </main>
     </div>
   );
 }
