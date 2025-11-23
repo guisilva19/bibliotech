@@ -134,11 +134,11 @@ function ListaLivros() {
           value={ordenarPor}
             onChange={(e) => setOrdenarPor(e.target.value)}
               className="p-3 rounded bg-white/20 border border-white/30 text-gray-900">                                                                           
-                <option value="">Ordenar...</option>
-                <option value="titulo">Título (A–Z)</option>
-                <option value="paginas">Número de páginas</option>
-              </select>
-            </div>
+        <option value="">Ordenar...</option>
+        <option value="titulo">Título (A–Z)</option>
+        <option value="paginas">Número de páginas</option>
+      </select>
+    </div>
 
 
       {/* TABELA */}

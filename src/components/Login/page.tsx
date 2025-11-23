@@ -1,12 +1,16 @@
 'use client';
 
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 import { HiMail, HiLockClosed, HiArrowRight } from 'react-icons/hi';
+import { useAuth } from '@/contexts/AuthContext';
+import Loading from '@/components/Loading';
 
-// Schema de validação com Yup
 const loginSchema = yup.object({
   email: yup
     .string()
@@ -20,6 +24,9 @@ const loginSchema = yup.object({
 type LoginFormData = yup.InferType<typeof loginSchema>;
 
 export default function LoginComponent() {
+  const router = useRouter();
+  const { login } = useAuth();
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const {
     register,
     handleSubmit,
@@ -37,8 +44,7 @@ export default function LoginComponent() {
       body: JSON.stringify(data),
     }).then(async (response) => {
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Erro ao fazer login');
+        throw new Error('Credenciais inválidas');
       }
       return response.json();
     });
@@ -46,23 +52,25 @@ export default function LoginComponent() {
     toast.promise(loginPromise, {
       loading: 'Entrando...',
       success: (result) => {
-        console.log('Login realizado com sucesso:', result);
-        // Aqui você pode redirecionar o usuário ou salvar o token
-        // Exemplo: router.push('/dashboard');
-        return 'Bem-vindo de volta à Bibliotech!';
+        if (result?.access_token) {
+          login(result.access_token);
+          setIsRedirecting(true);
+            router.push('/inicio');
+        }
+        return '';
       },
-      error: (error) => {
-        console.error('Erro no login:', error);
-        return error instanceof Error ? error.message : 'Erro ao fazer login. Tente novamente.';
-      },
+      error: (error) => error.message,
     });
   };
+
+  if (isRedirecting) {
+    return <Loading />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{
       background: 'linear-gradient(to bottom right, #f7ead9, #e1d2a9, #f7ead9)'
     }}>
-      {/* Padrão de madeira sutil */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
           backgroundImage: `repeating-linear-gradient(
@@ -75,7 +83,6 @@ export default function LoginComponent() {
         }}></div>
       </div>
 
-      {/* Elementos decorativos modernos com nova paleta */}
       <div className="absolute top-20 left-20 w-72 h-72 rounded-full blur-3xl" style={{
         background: 'linear-gradient(to bottom right, rgba(136, 180, 153, 0.2), transparent)'
       }}></div>
@@ -86,21 +93,23 @@ export default function LoginComponent() {
         background: 'linear-gradient(to right, rgba(103, 89, 78, 0.1), rgba(136, 180, 153, 0.1))'
       }}></div>
 
-      {/* Container principal com layout dividido */}
-      <div className="relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden" style={{
-        border: '1px solid rgba(225, 210, 169, 0.3)'
-      }}>
+      <motion.div 
+        className="relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden" 
+        style={{
+          border: '1px solid rgba(225, 210, 169, 0.3)'
+        }}
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+      >
         <div className="flex min-h-[600px]">
-          {/* Painel esquerdo - Welcome */}
           <div className="flex-1 p-12 flex flex-col justify-center relative" style={{
             background: 'linear-gradient(to bottom right, #619885, #88b499, #67594e)'
           }}>
-            {/* Elementos decorativos abstratos */}
             <div className="absolute top-8 left-8 w-16 h-16 bg-white/20 rounded-full blur-sm"></div>
             <div className="absolute bottom-8 right-8 w-24 h-24 bg-white/15 rounded-full blur-md"></div>
             <div className="absolute top-1/2 right-8 w-12 h-12 bg-white/25 rounded-full blur-sm"></div>
             
-            {/* Formas geométricas */}
             <div className="absolute top-16 right-16 w-8 h-8 border-2 border-white/30 rounded-full"></div>
             <div className="absolute bottom-16 left-16 w-6 h-6 bg-white/20 rounded-sm rotate-45"></div>
             <div className="absolute top-1/3 left-12 w-4 h-4 bg-white/30 rounded-full"></div>
@@ -115,7 +124,6 @@ export default function LoginComponent() {
             </div>
           </div>
 
-          {/* Painel direito - Formulário */}
           <div className="flex-1 p-12 flex flex-col justify-center">
             <div className="max-w-sm mx-auto w-full">
               <div className="text-center mb-8">
@@ -228,7 +236,7 @@ export default function LoginComponent() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
