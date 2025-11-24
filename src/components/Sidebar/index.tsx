@@ -1,41 +1,48 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import { 
   HiHome, 
-  HiBookOpen, 
-  HiUser, 
-  HiCog, 
-  HiLogout,
   HiMenu,
   HiX,
-  HiTag
+  HiTag,
+  HiBookOpen,
+  HiCollection
 } from 'react-icons/hi';
-import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { useState, useEffect } from 'react';
+import { Book } from '@/lib/quicksort';
 
 export default function Sidebar() {
-  const { logout } = useAuth();
-  const router = useRouter();
   const { sidebarOpen, setSidebarOpen } = useSidebar();
+  const [bookStats, setBookStats] = useState({ total: 0 });
 
-  const handleLogout = () => {
-    logout();
-    router.push('/');
-  };
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const response = await fetch('/api/books');
+        if (response.ok) {
+          const books: Book[] = await response.json();
+          const total = books.length;
+          setBookStats({ total });
+        }
+      } catch (err) {
+        console.error('Erro ao carregar estatísticas:', err);
+      }
+    }
+    fetchStats();
+  }, []);
 
   const menuItems = [
     { icon: HiHome, label: 'Início', active: true },
-    { icon: HiBookOpen, label: 'Livros', active: false },
+    { icon: HiCollection, label: 'Minha Biblioteca', active: false },
     { icon: HiTag, label: 'Categorias', active: false },
-    { icon: HiUser, label: 'Perfil', active: false },
-    { icon: HiCog, label: 'Configurações', active: false },
   ];
+
 
   return (
     <motion.aside 
-      className="fixed top-0 left-0 z-40 bg-white/90 backdrop-blur-xl shadow-2xl flex flex-col"
+      className="fixed top-0 left-0 z-40 bg-white shadow-xl flex flex-col"
       style={{
         borderRight: '1px solid rgba(225, 210, 169, 0.3)',
         height: '100vh',
@@ -53,15 +60,12 @@ export default function Sidebar() {
       }}
     >
       {/* CABEÇALHO DA SIDEBAR */}
-      <div className="border-b relative overflow-hidden" style={{
+      <div className="border-b" style={{
         borderColor: 'rgba(225, 210, 169, 0.3)',
-        padding: sidebarOpen ? '24px' : '16px',
+        padding: sidebarOpen ? '28px 24px' : '20px 16px',
         transition: 'padding 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
       }}>
-        <div className="absolute top-2 right-2 w-12 h-12 bg-white/10 rounded-full blur-sm"></div>
-        <div className={`flex items-center relative z-10 ${sidebarOpen ? 'justify-between' : 'justify-center'}`} style={{
-          transition: 'justify-content 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}>
+        <div className={`flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
           <h1 className={`text-2xl font-bold overflow-hidden whitespace-nowrap ${sidebarOpen ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'}`} style={{ 
             color: '#67594e',
             transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -70,50 +74,56 @@ export default function Sidebar() {
           </h1>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-xl hover:bg-white/50 transition-all duration-300 hover:scale-110 shrink-0"
+            className="p-2.5 rounded-xl hover:bg-gray-100 transition-all duration-200 hover:scale-105 active:scale-95 shrink-0"
             style={{ color: '#67594e' }}
+            aria-label={sidebarOpen ? 'Fechar menu' : 'Abrir menu'}
           >
-            {sidebarOpen ? <HiX className="w-6 h-6 transition-transform duration-300" /> : <HiMenu className="w-6 h-6 transition-transform duration-300" />}
+            {sidebarOpen ? <HiX className="w-5 h-5" /> : <HiMenu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
       {/* MENU DA SIDEBAR */}
-      <nav className="flex-1 overflow-y-auto" style={{
-        padding: sidebarOpen ? '16px' : '8px',
+      <nav className="flex-1 overflow-y-auto py-4" style={{
+        paddingLeft: sidebarOpen ? '16px' : '8px',
+        paddingRight: sidebarOpen ? '16px' : '8px',
         transition: 'padding 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
       }}>
-        <div className={`space-y-2 ${!sidebarOpen ? 'flex flex-col items-center' : ''}`} style={{
-          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}>
+        {/* NAVEGAÇÃO PRINCIPAL */}
+        <div className={`space-y-1 mb-6 ${!sidebarOpen ? 'flex flex-col items-center' : ''}`}>
           {menuItems.map((item, index) => {
             const Icon = item.icon;
             return (
               <motion.button
                 key={index}
-                className={`w-full flex items-center ${
-                  item.active 
-                    ? 'shadow-lg' 
-                    : 'hover:bg-white/50'
-                }`}
+                className="w-full flex items-center group"
                 style={{
-                  backgroundColor: item.active 
-                    ? 'rgba(97, 152, 133, 0.15)' 
-                    : 'transparent',
+                  backgroundColor: item.active ? 'rgba(97, 152, 133, 0.1)' : 'transparent',
                   color: item.active ? '#619885' : '#67594e',
-                  padding: sidebarOpen ? '14px 16px' : '12px 0',
-                  borderRadius: sidebarOpen ? '16px' : '12px',
-                  gap: sidebarOpen ? '16px' : '0',
+                  padding: sidebarOpen ? '14px 16px' : '14px 0',
+                  borderRadius: '12px',
+                  gap: sidebarOpen ? '14px' : '0',
                   justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!item.active) {
+                    e.currentTarget.style.backgroundColor = 'rgba(97, 152, 133, 0.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!item.active) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
                 }}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1], delay: index * 0.05 }}
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1], delay: index * 0.03 }}
               >
-                <Icon className="w-6 h-6 shrink-0 transition-transform duration-300" style={{
+                <Icon className="w-5 h-5 shrink-0 transition-transform duration-200" style={{
                   transform: item.active ? 'scale(1.1)' : 'scale(1)'
                 }} />
-                <span className={`font-semibold overflow-hidden whitespace-nowrap ${sidebarOpen ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'}`} style={{
+                <span className={`font-medium text-sm overflow-hidden whitespace-nowrap ${sidebarOpen ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'}`} style={{
                   transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}>
                   {item.label}
@@ -122,36 +132,35 @@ export default function Sidebar() {
             );
           })}
         </div>
-      </nav>
 
-      {/* RODAPÉ DA SIDEBAR */}
-      <div className="border-t mt-auto" style={{
-        borderColor: 'rgba(225, 210, 169, 0.3)',
-        padding: sidebarOpen ? '16px' : '8px',
-        transition: 'padding 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-      }}>
-        <motion.button
-          onClick={handleLogout}
-          className="w-full flex items-center hover:bg-red-50"
-          style={{ 
-            color: '#dc2626',
-            padding: sidebarOpen ? '14px 16px' : '12px 0',
-            borderRadius: sidebarOpen ? '16px' : '12px',
-            gap: sidebarOpen ? '16px' : '0',
-            justifyContent: sidebarOpen ? 'flex-start' : 'center',
-          }}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1], delay: menuItems.length * 0.05 + 0.1 }}
-        >
-          <HiLogout className="w-6 h-6 shrink-0" />
-          <span className={`font-semibold overflow-hidden whitespace-nowrap ${sidebarOpen ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'}`} style={{
-            transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-          }}>
-            Sair
-          </span>
-        </motion.button>
-      </div>
+        {/* ESTATÍSTICAS */}
+        {sidebarOpen && (
+          <motion.div
+            className="mb-6 p-4 rounded-xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(97, 152, 133, 0.1), rgba(97, 152, 133, 0.05))',
+              border: '1px solid rgba(97, 152, 133, 0.2)'
+            }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <HiBookOpen className="w-4 h-4" style={{ color: '#619885' }} />
+              <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#619885' }}>
+                Estatísticas
+              </h3>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs" style={{ color: 'rgba(103, 89, 78, 0.7)' }}>Total de Livros</span>
+              <span className="text-sm font-bold" style={{ color: '#67594e' }}>
+                {bookStats.total.toLocaleString('pt-BR')}
+              </span>
+            </div>
+          </motion.div>
+        )}
+
+      </nav>
     </motion.aside>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/Loading';
 import LoginComponent from '@/components/Login/page';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 
 export default function AuthLayout({
   children,
@@ -32,6 +33,6 @@ export default function AuthLayout({
     return <LoginComponent />;
   }
 
-  return <>{children}</>;
+  return <SidebarProvider>{children}</SidebarProvider>;
 }
 
