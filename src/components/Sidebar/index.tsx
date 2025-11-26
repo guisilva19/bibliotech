@@ -10,34 +10,28 @@ import {
   HiCollection
 } from 'react-icons/hi';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { useState, useEffect } from 'react';
-import { Book } from '@/lib/quicksort';
+import { useStats } from '@/contexts/StatsContext';
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useSidebar();
-  const [bookStats, setBookStats] = useState({ total: 0 });
+  const router = useRouter();
+  const pathname = usePathname();
+  const { stats, refreshStats } = useStats();
 
   useEffect(() => {
-    async function fetchStats() {
-      try {
-        const response = await fetch('/api/books');
-        if (response.ok) {
-          const books: Book[] = await response.json();
-          const total = books.length;
-          setBookStats({ total });
-        }
-      } catch (err) {
-        console.error('Erro ao carregar estatísticas:', err);
-      }
-    }
-    fetchStats();
-  }, []);
+    refreshStats();
+  }, [refreshStats]);
 
   const menuItems = [
-    { icon: HiHome, label: 'Início', active: true },
-    { icon: HiCollection, label: 'Minha Biblioteca', active: false },
-    { icon: HiTag, label: 'Categorias', active: false },
+    { icon: HiBookOpen, label: 'Livros', path: '/livros' },
+    { icon: HiTag, label: 'Categorias', path: '/categorias' },
   ];
+
+  const handleNavigation = (path: string) => {
+    router.push(path);
+  };
 
 
   return (
@@ -93,13 +87,15 @@ export default function Sidebar() {
         <div className={`space-y-1 mb-6 ${!sidebarOpen ? 'flex flex-col items-center' : ''}`}>
           {menuItems.map((item, index) => {
             const Icon = item.icon;
+            const isActive = pathname === item.path || (item.path === '/livros' && pathname === '/');
             return (
               <motion.button
                 key={index}
-                className="w-full flex items-center group"
+                onClick={() => handleNavigation(item.path)}
+                className="w-full flex items-center group cursor-pointer"
                 style={{
-                  backgroundColor: item.active ? 'rgba(97, 152, 133, 0.1)' : 'transparent',
-                  color: item.active ? '#619885' : '#67594e',
+                  backgroundColor: isActive ? 'rgba(97, 152, 133, 0.1)' : 'transparent',
+                  color: isActive ? '#619885' : '#67594e',
                   padding: sidebarOpen ? '14px 16px' : '14px 0',
                   borderRadius: '12px',
                   gap: sidebarOpen ? '14px' : '0',
@@ -107,12 +103,12 @@ export default function Sidebar() {
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  if (!item.active) {
+                  if (!isActive) {
                     e.currentTarget.style.backgroundColor = 'rgba(97, 152, 133, 0.05)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (!item.active) {
+                  if (!isActive) {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }
                 }}
@@ -121,7 +117,7 @@ export default function Sidebar() {
                 transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1], delay: index * 0.03 }}
               >
                 <Icon className="w-5 h-5 shrink-0 transition-transform duration-200" style={{
-                  transform: item.active ? 'scale(1.1)' : 'scale(1)'
+                  transform: isActive ? 'scale(1.1)' : 'scale(1)'
                 }} />
                 <span className={`font-medium text-sm overflow-hidden whitespace-nowrap ${sidebarOpen ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'}`} style={{
                   transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -151,11 +147,19 @@ export default function Sidebar() {
                 Estatísticas
               </h3>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs" style={{ color: 'rgba(103, 89, 78, 0.7)' }}>Total de Livros</span>
-              <span className="text-sm font-bold" style={{ color: '#67594e' }}>
-                {bookStats.total.toLocaleString('pt-BR')}
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: 'rgba(103, 89, 78, 0.7)' }}>Total de Livros</span>
+                <span className="text-sm font-bold" style={{ color: '#67594e' }}>
+                  {stats.books.toLocaleString('pt-BR')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: 'rgba(103, 89, 78, 0.7)' }}>Total de Categorias</span>
+                <span className="text-sm font-bold" style={{ color: '#67594e' }}>
+                  {stats.categories.toLocaleString('pt-BR')}
+                </span>
+              </div>
             </div>
           </motion.div>
         )}

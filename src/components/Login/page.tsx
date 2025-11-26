@@ -55,7 +55,7 @@ export default function LoginComponent() {
         if (result?.access_token) {
           login(result.access_token);
           setIsRedirecting(true);
-            router.push('/inicio');
+            router.push('/livros');
         }
         return '';
       },
