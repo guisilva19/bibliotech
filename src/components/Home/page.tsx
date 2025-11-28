@@ -23,7 +23,6 @@ function HomeContent() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [ratingFilter, setRatingFilter] = useState<'all' | 'top' | 'worst'>('all');
   const [algorithm, setAlgorithm] = useState<'quicksort-binary' | 'insertionsort-linear'>('quicksort-binary');
   const [sortTime, setSortTime] = useState<number | null>(null);
   const [searchTime, setSearchTime] = useState<number | null>(null);
@@ -35,14 +34,12 @@ function HomeContent() {
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
   const [sortProgress, setSortProgress] = useState<number | null>(null);
   const [isSorting, setIsSorting] = useState(false);
-  // Cache para Insertion Sort - evita reordenar se já foi ordenado antes
   const [insertionSortCache, setInsertionSortCache] = useState<Book[] | null>(null);
   const [insertionSortTime, setInsertionSortTime] = useState<number | null>(null);
-  // Cache para Quicksort - para comparação no modal
   const [quicksortCache, setQuicksortCache] = useState<Book[] | null>(null);
   const booksPerPage = 50;
 
-  // Carrega livros apenas uma vez
+  // CARREGA LIVROS APENAS UMA VEZ
   useEffect(() => {
     async function carregarLivros() {
       try {
@@ -60,7 +57,7 @@ function HomeContent() {
 
         const data = await response.json();
         setRawBooks(data);
-        // Limpa o cache quando novos dados são carregados
+        // LIMPA O CACHE QUANDO NOVOS DADOS SÃO CARREGADOS
         setInsertionSortCache(null);
         setInsertionSortTime(null);
         setQuicksortCache(null);
@@ -76,7 +73,7 @@ function HomeContent() {
     }
   }, [rawBooks.length]);
 
-  // Reordena quando algoritmo muda ou livros são carregados
+  // REORDENA QUANDO ALGORITMO MUDA OU LIVROS SÃO CARREGADOS
   useEffect(() => {
     if (rawBooks.length === 0) return;
 
@@ -85,41 +82,41 @@ function HomeContent() {
       let livrosOrdenados: Book[];
 
       if (algorithm === 'quicksort-binary') {
-        // Quicksort é rápido, pode ser síncrono
+        // QUICKSORT 
         livrosOrdenados = quickSortBooks([...rawBooks]);
         const fimTempo = performance.now();
         setSortTime(fimTempo - inicioTempo);
-        // Salva no cache para uso no modal
+        // SALVA NO CACHE PARA USO NO MODAL
         setQuicksortCache(livrosOrdenados);
         setSortProgress(null);
         setIsSorting(false);
       } else {
-        // Insertion Sort - verifica se já existe cache
+        // INSERTION SORT - VERIFICA SE JÁ EXISTE CACHE
         if (insertionSortCache && insertionSortTime !== null) {
-          // Usa dados do cache - não precisa ordenar novamente
+          // USA DADOS DO CACHE - NÃO PRECISA ORDENAR NOVAMENTE
           livrosOrdenados = insertionSortCache;
           setSortTime(insertionSortTime);
           setSortProgress(null);
           setIsSorting(false);
         } else {
-          // Primeira vez ordenando com Insertion Sort - ordena e salva no cache
+          // PRIMEIRA VEZ ORDENANDO COM INSERTION SORT - ORDENA E SALVA NO CACHE
           setIsSorting(true);
           setSortProgress(0);
           
-          // Força uma atualização inicial
+          // FORÇA UMA ATUALIZAÇÃO INICIAL
           await new Promise(resolve => setTimeout(resolve, 10));
           
           livrosOrdenados = await insertionSortBooksAsync(
             [...rawBooks],
             (progress) => {
-              // Atualiza o progresso
+              // ATUALIZA O PROGRESSO
               setSortProgress(progress);
             }
           );
           const fimTempo = performance.now();
           const tempoOrdenacao = fimTempo - inicioTempo;
           
-          // Salva no cache para uso futuro
+          // SALVA NO CACHE PARA USO FUTURO
           setInsertionSortCache(livrosOrdenados);
           setInsertionSortTime(tempoOrdenacao);
           setSortTime(tempoOrdenacao);
@@ -136,36 +133,23 @@ function HomeContent() {
     ordenarLivros();
   }, [algorithm, rawBooks, insertionSortCache, insertionSortTime]);
 
-  // Garante que o cache do Quicksort sempre esteja atualizado para o modal
+  // GARANTE QUE O CACHE DO QUICKSORT SEMPRE ESTEJA ATUALIZADO PARA O MODAL
   useEffect(() => {
     if (rawBooks.length === 0) return;
     if (!quicksortCache) {
-      // Se não tem cache do quicksort, ordena e salva
+      // SE NÃO TEM CACHE DO QUICKSORT, ORDENA E SALVA
       const livrosOrdenados = quickSortBooks([...rawBooks]);
       setQuicksortCache(livrosOrdenados);
     }
   }, [rawBooks, quicksortCache]);
 
-  // Função para normalizar rating (converte de 0-500 para 0-5)
-  const normalizarRating = (rating: number | undefined): number => {
-    if (rating === undefined || rating === null) return 0;
-    const numRating = Number(rating);
-    if (isNaN(numRating) || numRating === 0) return 0;
-    
-    // Se o rating for maior que 5, está em escala 0-500, então divide por 100
-    if (numRating > 5) {
-      return Math.min(Math.max(numRating / 100, 0), 5);
-    }
-    return Math.min(Math.max(numRating, 0), 5);
-  };
-
-  // calcula livros filtrados com useMemo para evitar recálculos
+  // CALCULA LIVROS FILTRADOS
   const livrosFiltrados = useMemo(() => {
     if (!allBooks.length) return [];
     
     let resultado: Book[] = [];
     
-    // Aplica busca baseada no algoritmo selecionado
+    // APLICA BUSCA BASEADA NO ALGORITMO SELECIONADO
     if (searchTerm.trim()) {
       const inicioTempo = performance.now();
       resultado = algorithm === 'quicksort-binary'
@@ -178,46 +162,24 @@ function HomeContent() {
       setSearchTime(null);
     }
     
-    // Aplica ordenação por avaliações
-    if (ratingFilter === 'top') {
-      // Melhores primeiros: ordena do maior para o menor rating
-      const sorted = [...resultado].sort((a, b) => {
-        const ratingA = normalizarRating(a.rating);
-        const ratingB = normalizarRating(b.rating);
-        const diff = ratingB - ratingA;
-        return diff !== 0 ? diff : 0;
-      });
-      resultado = sorted;
-    } else if (ratingFilter === 'worst') {
-      // Piores primeiros: ordena do menor para o maior rating
-      const sorted = [...resultado].sort((a, b) => {
-        const ratingA = normalizarRating(a.rating);
-        const ratingB = normalizarRating(b.rating);
-        const diff = ratingA - ratingB;
-        return diff !== 0 ? diff : 0;
-      });
-      resultado = sorted;
-    }
-    // Se ratingFilter === 'all', mantém a ordem original (já ordenada por título)
-    
     return resultado;
-  }, [searchTerm, allBooks, ratingFilter, algorithm]);
+  }, [searchTerm, allBooks, algorithm]);
 
-  // Função para comparar performance com o outro algoritmo
+  // FUNÇÃO PARA COMPARAR PERFORMANCE COM O OUTRO ALGORITMO
   const handleComparePerformance = async () => {
     if (rawBooks.length === 0) return;
 
     const otherAlgorithm: 'quicksort-binary' | 'insertionsort-linear' = 
       algorithm === 'quicksort-binary' ? 'insertionsort-linear' : 'quicksort-binary';
 
-    // Ordena com o outro algoritmo e mede o tempo
+    // ORDENA COM O OUTRO ALGORITMO E MEDE O TEMPO
     const inicioSort = performance.now();
     let livrosOrdenados: Book[];
     
     if (otherAlgorithm === 'quicksort-binary') {
       livrosOrdenados = quickSortBooks([...rawBooks]);
     } else {
-      // Mostra progresso durante a comparação
+      // MOSTRA PROGRESSO DURANTE A COMPARAÇÃO
       setIsSorting(true);
       setSortProgress(0);
       livrosOrdenados = await insertionSortBooksAsync(
@@ -233,7 +195,7 @@ function HomeContent() {
     const fimSort = performance.now();
     const sortTimeOther = fimSort - inicioSort;
 
-    // Busca com o outro algoritmo e mede o tempo (sempre testa, mesmo sem termo de busca)
+    // BUSCA COM O OUTRO ALGORITMO E MEDE O TEMPO
     const inicioSearch = performance.now();
     if (otherAlgorithm === 'quicksort-binary') {
       binarySearchBooks(livrosOrdenados, searchTerm || 'a');
@@ -252,19 +214,18 @@ function HomeContent() {
     setIsPerformanceModalOpen(true);
   };
 
-  // calcula total de páginas
+  // CALCULA TOTAL DE PÁGINAS
   const totalPaginas = useMemo(() => {
     return Math.ceil(livrosFiltrados.length / booksPerPage);
   }, [livrosFiltrados.length, booksPerPage]);
 
-  // reseta para página 1 quando busca ou filtro muda
+  // RESETA PARA PÁGINA 1 QUANDO A BUSCA MUDA
   useEffect(() => {
     if (!allBooks.length) return;
     setCurrentPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, ratingFilter]);
+  }, [searchTerm]);
 
-  // atualiza quando página muda ou livros filtrados mudam
+  // ATUALIZA QUANDO PÁGINA MUDA OU LIVROS FILTRADOS MUDA
   useEffect(() => {
     if (!allBooks.length || !livrosFiltrados.length) {
       setDisplayedBooks([]);
@@ -277,7 +238,7 @@ function HomeContent() {
     setDisplayedBooks(livrosParaMostrar);
   }, [currentPage, livrosFiltrados, booksPerPage, allBooks.length]);
 
-  // atualiza quando livros são carregados pela primeira vez
+  // ATUALIZA QUANDO LIVROS SÃO CARREGADOS PELA PRIMEIRA VEZ
   useEffect(() => {
     if (allBooks.length > 0 && displayedBooks.length === 0 && !searchTerm) {
       setCurrentPage(1);
@@ -307,10 +268,10 @@ function HomeContent() {
     }
   }
 
-  // gera números das páginas para exibir
+  // GERA NÚMEROS DAS PÁGINAS PARA EXIBIR
   const paginasParaExibir = useMemo(() => {
     const paginas: (number | string)[] = [];
-    const maxPaginas = 7; // máximo de números de página a exibir
+    const maxPaginas = 7; // MÁXIMO DE NÚMEROS DE PÁGINA A EXIBIR
 
     if (totalPaginas <= maxPaginas) {
       for (let i = 1; i <= totalPaginas; i++) {
@@ -488,23 +449,6 @@ function HomeContent() {
                       </div>
                     </div>
                     
-                    {/* FILTRO DE AVALIAÇÕES */}
-                    <button
-                      onClick={() => setRatingFilter(ratingFilter === 'top' ? 'all' : 'top')}
-                      className={`px-4 py-2.5 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
-                        ratingFilter === 'top' ? 'shadow-sm' : ''
-                      }`}
-                      style={{
-                        backgroundColor: ratingFilter === 'top' ? 'rgba(97, 152, 133, 0.15)' : 'rgba(247, 234, 217, 0.95)',
-                        borderColor: ratingFilter === 'top' ? '#619885' : 'rgba(225, 210, 169, 0.5)',
-                        color: ratingFilter === 'top' ? '#619885' : '#67594e',
-                        fontSize: '13px',
-                        fontWeight: '500'
-                      }}
-                    >
-                      <HiStar className="w-4 h-4" style={{ color: '#fbbf24' }} />
-                      <span>Melhores Avaliações</span>
-                    </button>
                   </div>
 
                   {/* SELETOR DE ALGORITMO E MÉTRICAS */}
