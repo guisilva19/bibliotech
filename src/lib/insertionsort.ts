@@ -10,7 +10,7 @@ export async function insertionSortBooksAsync(
   const CHUNK_SIZE = 200000; // USADO PARA NAO TRAVAR O SITE
   let operationsInChunk = 0;
   let lastProgressUpdate = 0;
-  const PROGRESS_UPDATE_INTERVAL = 1000; // Atualiza progresso a cada 1000 iterações
+  const PROGRESS_UPDATE_INTERVAL = 5000; // Atualiza progresso a cada 5000 iterações
   
   // ATUALIZA PROGRESSO INICIAL
   if (onProgress) {
