@@ -6,24 +6,43 @@ import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
-import { HiStar, HiOutlineStar, HiChevronLeft, HiChevronRight, HiSearch } from 'react-icons/hi';
+import { HiStar, HiOutlineStar, HiChevronLeft, HiChevronRight, HiSearch, HiLightningBolt, HiChartBar } from 'react-icons/hi';
 import { quickSortBooks, Book } from '@/lib/quicksort';
 import { binarySearchBooks} from '@/lib/binarySearch';
+import { insertionSortBooksAsync } from '@/lib/insertionsort';
+import { linearSearchBooks } from '@/lib/linearSearch';
 import { BookCard } from '@/components/Livros';
+import PerformanceModal from '@/components/Livros/PerformanceModal';
 
 function HomeContent() {
   const { sidebarOpen } = useSidebar();
   const [allBooks, setAllBooks] = useState<Book[]>([]);
+  const [rawBooks, setRawBooks] = useState<Book[]>([]);
   const [displayedBooks, setDisplayedBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [ratingFilter, setRatingFilter] = useState<'all' | 'top' | 'worst'>('all');
+  const [algorithm, setAlgorithm] = useState<'quicksort-binary' | 'insertionsort-linear'>('quicksort-binary');
   const [sortTime, setSortTime] = useState<number | null>(null);
   const [searchTime, setSearchTime] = useState<number | null>(null);
+  const [comparisonMetrics, setComparisonMetrics] = useState<{
+    sortTime: number;
+    searchTime: number | null;
+    algorithm: 'quicksort-binary' | 'insertionsort-linear';
+  } | null>(null);
+  const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
+  const [sortProgress, setSortProgress] = useState<number | null>(null);
+  const [isSorting, setIsSorting] = useState(false);
+  // Cache para Insertion Sort - evita reordenar se já foi ordenado antes
+  const [insertionSortCache, setInsertionSortCache] = useState<Book[] | null>(null);
+  const [insertionSortTime, setInsertionSortTime] = useState<number | null>(null);
+  // Cache para Quicksort - para comparação no modal
+  const [quicksortCache, setQuicksortCache] = useState<Book[] | null>(null);
   const booksPerPage = 50;
 
+  // Carrega livros apenas uma vez
   useEffect(() => {
     async function carregarLivros() {
       try {
@@ -40,17 +59,11 @@ function HomeContent() {
         }
 
         const data = await response.json();
-
-        // ordena com quicksort
-        const inicioTempo = performance.now();
-        const livrosOrdenados = quickSortBooks([...data]);
-        const fimTempo = performance.now();
-        setSortTime(fimTempo - inicioTempo);
-
-
-        setAllBooks(livrosOrdenados);
-        setDisplayedBooks(livrosOrdenados.slice(0, booksPerPage));
-        setCurrentPage(1);
+        setRawBooks(data);
+        // Limpa o cache quando novos dados são carregados
+        setInsertionSortCache(null);
+        setInsertionSortTime(null);
+        setQuicksortCache(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro desconhecido');
       } finally {
@@ -58,8 +71,80 @@ function HomeContent() {
       }
     }
 
-    carregarLivros();
-  }, []);
+    if (rawBooks.length === 0) {
+      carregarLivros();
+    }
+  }, [rawBooks.length]);
+
+  // Reordena quando algoritmo muda ou livros são carregados
+  useEffect(() => {
+    if (rawBooks.length === 0) return;
+
+    async function ordenarLivros() {
+      const inicioTempo = performance.now();
+      let livrosOrdenados: Book[];
+
+      if (algorithm === 'quicksort-binary') {
+        // Quicksort é rápido, pode ser síncrono
+        livrosOrdenados = quickSortBooks([...rawBooks]);
+        const fimTempo = performance.now();
+        setSortTime(fimTempo - inicioTempo);
+        // Salva no cache para uso no modal
+        setQuicksortCache(livrosOrdenados);
+        setSortProgress(null);
+        setIsSorting(false);
+      } else {
+        // Insertion Sort - verifica se já existe cache
+        if (insertionSortCache && insertionSortTime !== null) {
+          // Usa dados do cache - não precisa ordenar novamente
+          livrosOrdenados = insertionSortCache;
+          setSortTime(insertionSortTime);
+          setSortProgress(null);
+          setIsSorting(false);
+        } else {
+          // Primeira vez ordenando com Insertion Sort - ordena e salva no cache
+          setIsSorting(true);
+          setSortProgress(0);
+          
+          // Força uma atualização inicial
+          await new Promise(resolve => setTimeout(resolve, 10));
+          
+          livrosOrdenados = await insertionSortBooksAsync(
+            [...rawBooks],
+            (progress) => {
+              // Atualiza o progresso
+              setSortProgress(progress);
+            }
+          );
+          const fimTempo = performance.now();
+          const tempoOrdenacao = fimTempo - inicioTempo;
+          
+          // Salva no cache para uso futuro
+          setInsertionSortCache(livrosOrdenados);
+          setInsertionSortTime(tempoOrdenacao);
+          setSortTime(tempoOrdenacao);
+          setSortProgress(null);
+          setIsSorting(false);
+        }
+      }
+
+      setAllBooks(livrosOrdenados);
+      setDisplayedBooks(livrosOrdenados.slice(0, booksPerPage));
+      setCurrentPage(1);
+    }
+
+    ordenarLivros();
+  }, [algorithm, rawBooks, insertionSortCache, insertionSortTime]);
+
+  // Garante que o cache do Quicksort sempre esteja atualizado para o modal
+  useEffect(() => {
+    if (rawBooks.length === 0) return;
+    if (!quicksortCache) {
+      // Se não tem cache do quicksort, ordena e salva
+      const livrosOrdenados = quickSortBooks([...rawBooks]);
+      setQuicksortCache(livrosOrdenados);
+    }
+  }, [rawBooks, quicksortCache]);
 
   // Função para normalizar rating (converte de 0-500 para 0-5)
   const normalizarRating = (rating: number | undefined): number => {
@@ -80,10 +165,12 @@ function HomeContent() {
     
     let resultado: Book[] = [];
     
-    // Aplica busca binária se houver termo de busca
+    // Aplica busca baseada no algoritmo selecionado
     if (searchTerm.trim()) {
       const inicioTempo = performance.now();
-      resultado = binarySearchBooks(allBooks, searchTerm);
+      resultado = algorithm === 'quicksort-binary'
+        ? binarySearchBooks(allBooks, searchTerm)
+        : linearSearchBooks(allBooks, searchTerm);
       const fimTempo = performance.now();
       setSearchTime(fimTempo - inicioTempo);
     } else {
@@ -111,10 +198,59 @@ function HomeContent() {
       });
       resultado = sorted;
     }
-    // Se ratingFilter === 'all', mantém a ordem original (já ordenada por título com quicksort)
+    // Se ratingFilter === 'all', mantém a ordem original (já ordenada por título)
     
     return resultado;
-  }, [searchTerm, allBooks, ratingFilter]);
+  }, [searchTerm, allBooks, ratingFilter, algorithm]);
+
+  // Função para comparar performance com o outro algoritmo
+  const handleComparePerformance = async () => {
+    if (rawBooks.length === 0) return;
+
+    const otherAlgorithm: 'quicksort-binary' | 'insertionsort-linear' = 
+      algorithm === 'quicksort-binary' ? 'insertionsort-linear' : 'quicksort-binary';
+
+    // Ordena com o outro algoritmo e mede o tempo
+    const inicioSort = performance.now();
+    let livrosOrdenados: Book[];
+    
+    if (otherAlgorithm === 'quicksort-binary') {
+      livrosOrdenados = quickSortBooks([...rawBooks]);
+    } else {
+      // Mostra progresso durante a comparação
+      setIsSorting(true);
+      setSortProgress(0);
+      livrosOrdenados = await insertionSortBooksAsync(
+        [...rawBooks],
+        (progress) => {
+          setSortProgress(progress);
+        }
+      );
+      setIsSorting(false);
+      setSortProgress(null);
+    }
+    
+    const fimSort = performance.now();
+    const sortTimeOther = fimSort - inicioSort;
+
+    // Busca com o outro algoritmo e mede o tempo (sempre testa, mesmo sem termo de busca)
+    const inicioSearch = performance.now();
+    if (otherAlgorithm === 'quicksort-binary') {
+      binarySearchBooks(livrosOrdenados, searchTerm || 'a');
+    } else {
+      linearSearchBooks(livrosOrdenados, searchTerm || 'a');
+    }
+    const fimSearch = performance.now();
+    const searchTimeOther = fimSearch - inicioSearch;
+
+    setComparisonMetrics({
+      sortTime: sortTimeOther,
+      searchTime: searchTimeOther,
+      algorithm: otherAlgorithm
+    });
+
+    setIsPerformanceModalOpen(true);
+  };
 
   // calcula total de páginas
   const totalPaginas = useMemo(() => {
@@ -274,81 +410,192 @@ function HomeContent() {
             <div className="mb-10 relative" style={{ zIndex: 10 }}>
               {/* DESCRIÇÃO */}
               <div className="mb-6">
-                <p className="text-xl font-medium mb-1.5 leading-relaxed" style={{ color: '#67594e' }}>
-                  Descubra milhares de livros incríveis
-                </p>
-                <p className="text-base leading-relaxed" style={{ color: 'rgba(103, 89, 78, 0.7)' }}>
-                  Explore, encontre e mergulhe em novas histórias
-                </p>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="text-xl font-medium mb-1.5 leading-relaxed" style={{ color: '#67594e' }}>
+                      Descubra milhares de livros incríveis
+                    </p>
+                    <p className="text-base leading-relaxed" style={{ color: 'rgba(103, 89, 78, 0.7)' }}>
+                      Explore, encontre e mergulhe em novas histórias
+                    </p>
+                  </div>
+                  {sortTime !== null && !loading && (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 backdrop-blur-sm" style={{
+                      border: '1px solid rgba(225, 210, 169, 0.4)'
+                    }}>
+                      <HiLightningBolt className="w-4 h-4" style={{ color: '#619885' }} />
+                      <div>
+                        <p className="text-xs" style={{ color: 'rgba(103, 89, 78, 0.6)' }}>
+                          Ordenação
+                        </p>
+                        <p className="text-sm font-bold" style={{ color: '#619885' }}>
+                          {(sortTime / 1000).toFixed(3)} s
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* INPUT DE BUSCA E FILTRO */}
               {!loading && allBooks.length > 0 && (
-                <div className="flex items-center gap-3" style={{ zIndex: 100 }}>
-                  <div className="max-w-xl relative flex-1">
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <HiSearch className="w-6 h-6" style={{ color: '#67594e' }} />
+                <div className="space-y-4" style={{ zIndex: 100 }}>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="max-w-xl relative flex-1 min-w-[200px]">
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <HiSearch className="w-6 h-6" style={{ color: '#67594e' }} />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Busque por título, autor ou assunto..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = '#619885';
+                            e.target.style.boxShadow = '0 0 0 4px rgba(97, 152, 133, 0.15)';
+                            e.target.style.transform = 'scale(1.01)';
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = 'rgba(225, 210, 169, 0.5)';
+                            e.target.style.boxShadow = 'none';
+                            e.target.style.transform = 'scale(1)';
+                          }}
+                          className="w-full pl-12 pr-10 py-2.5 rounded-xl border focus:outline-none transition-all duration-300"
+                          style={{
+                            backgroundColor: 'rgba(247, 234, 217, 0.95)',
+                            borderColor: 'rgba(225, 210, 169, 0.5)',
+                            color: '#67594e',
+                            fontSize: '14px',
+                            position: 'relative',
+                            zIndex: 100,
+                            pointerEvents: 'auto',
+                            fontWeight: '500'
+                          }}
+                          autoComplete="off"
+                          tabIndex={0}
+                        />
+                        {searchTerm && (
+                          <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute inset-y-0 right-0 pr-5 flex items-center hover:opacity-70 transition-opacity"
+                            style={{ zIndex: 101 }}
+                            aria-label="Limpar busca"
+                          >
+                            <span className="text-2xl font-light leading-none" style={{ color: 'rgba(103, 89, 78, 0.5)' }}>×</span>
+                          </button>
+                        )}
                       </div>
-                      <input
-                        type="text"
-                        placeholder="Busque por título, autor ou assunto..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = '#619885';
-                          e.target.style.boxShadow = '0 0 0 4px rgba(97, 152, 133, 0.15)';
-                          e.target.style.transform = 'scale(1.01)';
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = 'rgba(225, 210, 169, 0.5)';
-                          e.target.style.boxShadow = 'none';
-                          e.target.style.transform = 'scale(1)';
-                        }}
-                        className="w-full pl-12 pr-10 py-2.5 rounded-xl border focus:outline-none transition-all duration-300"
+                    </div>
+                    
+                    {/* FILTRO DE AVALIAÇÕES */}
+                    <button
+                      onClick={() => setRatingFilter(ratingFilter === 'top' ? 'all' : 'top')}
+                      className={`px-4 py-2.5 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
+                        ratingFilter === 'top' ? 'shadow-sm' : ''
+                      }`}
+                      style={{
+                        backgroundColor: ratingFilter === 'top' ? 'rgba(97, 152, 133, 0.15)' : 'rgba(247, 234, 217, 0.95)',
+                        borderColor: ratingFilter === 'top' ? '#619885' : 'rgba(225, 210, 169, 0.5)',
+                        color: ratingFilter === 'top' ? '#619885' : '#67594e',
+                        fontSize: '13px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      <HiStar className="w-4 h-4" style={{ color: '#fbbf24' }} />
+                      <span>Melhores Avaliações</span>
+                    </button>
+                  </div>
+
+                  {/* SELETOR DE ALGORITMO E MÉTRICAS */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium" style={{ color: '#67594e' }}>
+                        Algoritmo:
+                      </label>
+                      <select
+                        value={algorithm}
+                        onChange={(e) => setAlgorithm(e.target.value as 'quicksort-binary' | 'insertionsort-linear')}
+                        disabled={isSorting}
+                        className="px-4 py-2 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
                           backgroundColor: 'rgba(247, 234, 217, 0.95)',
                           borderColor: 'rgba(225, 210, 169, 0.5)',
                           color: '#67594e',
-                          fontSize: '14px',
-                          position: 'relative',
-                          zIndex: 100,
-                          pointerEvents: 'auto',
-                          fontWeight: '500'
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          cursor: isSorting ? 'not-allowed' : 'pointer'
                         }}
-                        autoComplete="off"
-                        tabIndex={0}
-                      />
-                      {searchTerm && (
-                        <button
-                          onClick={() => setSearchTerm('')}
-                          className="absolute inset-y-0 right-0 pr-5 flex items-center hover:opacity-70 transition-opacity"
-                          style={{ zIndex: 101 }}
-                          aria-label="Limpar busca"
-                        >
-                          <span className="text-2xl font-light leading-none" style={{ color: 'rgba(103, 89, 78, 0.5)' }}>×</span>
-                        </button>
-                      )}
+                      >
+                        <option value="quicksort-binary">Quicksort + Busca Binária ⚡</option>
+                        <option value="insertionsort-linear">Insertion Sort + Busca Linear</option>
+                      </select>
                     </div>
+
+
+                    {/* Indicador de progresso da ordenação */}
+                    {isSorting && sortProgress !== null && (
+                      <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-white/80 backdrop-blur-sm" style={{
+                        border: '1px solid rgba(225, 210, 169, 0.4)',
+                        minWidth: '250px'
+                      }}>
+                        <div className="w-4 h-4 border-2 border-[#619885] border-t-transparent rounded-full animate-spin"></div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium" style={{ color: '#67594e' }}>
+                              Ordenando com Insertion Sort...
+                            </span>
+                            <span className="text-xs font-bold" style={{ color: '#619885' }}>
+                              {sortProgress.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="w-full h-2 rounded-full overflow-hidden" style={{
+                            backgroundColor: 'rgba(225, 210, 169, 0.2)'
+                          }}>
+                            <div 
+                              className="h-full transition-all duration-300 rounded-full"
+                              style={{
+                                width: `${sortProgress}%`,
+                                backgroundColor: '#619885'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Indicador de velocidade da busca */}
+                    {searchTime !== null && searchTerm && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/80 backdrop-blur-sm" style={{
+                        border: '1px solid rgba(225, 210, 169, 0.4)'
+                      }}>
+                        <HiLightningBolt className="w-4 h-4" style={{ 
+                          color: algorithm === 'quicksort-binary' ? '#619885' : 'rgba(103, 89, 78, 0.6)'
+                        }} />
+                        <span className="text-xs font-medium" style={{ color: '#67594e' }}>
+                          Busca: {(searchTime / 1000).toFixed(3)} s
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Botão de métricas */}
+                    <button
+                      onClick={handleComparePerformance}
+                      disabled={isSorting}
+                      className="px-4 py-2.5 rounded-lg border transition-all duration-200 flex items-center gap-2 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        backgroundColor: 'rgba(97, 152, 133, 0.1)',
+                        borderColor: '#619885',
+                        color: '#619885',
+                        fontSize: '13px',
+                        fontWeight: '500',
+                        cursor: isSorting ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      <HiChartBar className="w-4 h-4" />
+                      <span>Comparar Performance</span>
+                    </button>
                   </div>
-                  
-                  {/* FILTRO DE AVALIAÇÕES */}
-                  <button
-                    onClick={() => setRatingFilter(ratingFilter === 'top' ? 'all' : 'top')}
-                    className={`px-4 py-2.5 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
-                      ratingFilter === 'top' ? 'shadow-sm' : ''
-                    }`}
-                    style={{
-                      backgroundColor: ratingFilter === 'top' ? 'rgba(97, 152, 133, 0.15)' : 'rgba(247, 234, 217, 0.95)',
-                      borderColor: ratingFilter === 'top' ? '#619885' : 'rgba(225, 210, 169, 0.5)',
-                      color: ratingFilter === 'top' ? '#619885' : '#67594e',
-                      fontSize: '13px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    <HiStar className="w-4 h-4" style={{ color: '#fbbf24' }} />
-                    <span>Melhores Avaliações</span>
-                  </button>
                 </div>
               )}
               
@@ -357,7 +604,7 @@ function HomeContent() {
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 flex items-center gap-3"
+                  className="mt-4 flex items-center gap-3 flex-wrap"
                 >
                   <div className="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/80 backdrop-blur-sm shadow-sm" style={{
                     border: '1px solid rgba(225, 210, 169, 0.4)'
@@ -366,6 +613,25 @@ function HomeContent() {
                       {livrosFiltrados.length.toLocaleString('pt-BR')} {livrosFiltrados.length === 1 ? 'livro encontrado' : 'livros encontrados'}
                     </p>
                   </div>
+                  {searchTime !== null && (
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 backdrop-blur-sm shadow-sm" style={{
+                      border: `2px solid ${algorithm === 'quicksort-binary' ? '#619885' : 'rgba(103, 89, 78, 0.4)'}`
+                    }}>
+                      <HiLightningBolt className="w-5 h-5" style={{ 
+                        color: algorithm === 'quicksort-binary' ? '#619885' : 'rgba(103, 89, 78, 0.6)'
+                      }} />
+                      <div>
+                        <p className="text-xs" style={{ color: 'rgba(103, 89, 78, 0.6)' }}>
+                          Velocidade da Busca
+                        </p>
+                        <p className="text-sm font-bold" style={{ 
+                          color: algorithm === 'quicksort-binary' ? '#619885' : '#67594e'
+                        }}>
+                          {(searchTime / 1000).toFixed(3)} segundos
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </div>
@@ -482,6 +748,20 @@ function HomeContent() {
           </div>
         </div>
       </main>
+
+      {/* Modal de Performance */}
+      <PerformanceModal
+        isOpen={isPerformanceModalOpen}
+        onClose={() => setIsPerformanceModalOpen(false)}
+        currentMetrics={{
+          sortTime: sortTime || 0,
+          searchTime: searchTime || 0,
+          algorithm: algorithm
+        }}
+        comparisonMetrics={comparisonMetrics}
+        quicksortBooks={quicksortCache || allBooks}
+        insertionSortBooks={insertionSortCache || allBooks}
+      />
     </div>
   );
 }
