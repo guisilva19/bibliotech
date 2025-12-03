@@ -259,11 +259,11 @@ export default function PerformanceModal({
                           <p className="text-lg font-bold" style={{ color: '#619885' }}>
                             {formatTime(binarySearchTime)}
                           </p>
-                          {searchResultsCount && (
+                          {/* {searchResultsCount && (
                             <p className="text-xs mt-1" style={{ color: 'rgba(103, 89, 78, 0.6)' }}>
                               {searchResultsCount.binary} resultado(s)
                             </p>
-                          )}
+                          )} */}
                         </div>
                         <div className="p-3 rounded-lg bg-white/50">
                           <p className="text-xs mb-1" style={{ color: 'rgba(103, 89, 78, 0.6)' }}>
@@ -272,11 +272,11 @@ export default function PerformanceModal({
                           <p className="text-lg font-bold" style={{ color: '#67594e' }}>
                             {formatTime(linearSearchTime)}
                           </p>
-                          {searchResultsCount && (
+                          {/* {searchResultsCount && (
                             <p className="text-xs mt-1" style={{ color: 'rgba(103, 89, 78, 0.6)' }}>
                               {searchResultsCount.linear} resultado(s)
                             </p>
-                          )}
+                          )} */}
                         </div>
                       </div>
                     </div>

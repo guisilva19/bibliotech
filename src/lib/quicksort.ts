@@ -13,6 +13,13 @@ export interface Genre {
   updatedAt: string;
 }
 
+function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 // QUICKSORT 
 export function quickSortBooks(arr: Book[], start: number = 0, end: number = arr.length - 1): Book[] {
   if (start < end) {
@@ -24,11 +31,11 @@ export function quickSortBooks(arr: Book[], start: number = 0, end: number = arr
 }
 
 function partitionBooks(arr: Book[], start: number, end: number): number {
-  const pivo = arr[end].title.toLowerCase();
+  const pivo = normalizeText(arr[end].title);
   let i = start - 1;
 
   for (let j = start; j < end; j++) {
-    if (arr[j].title.toLowerCase() <= pivo) {
+    if (normalizeText(arr[j].title) <= pivo) {
       i++;
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
@@ -48,11 +55,11 @@ export function quickSortGenres(arr: Genre[], start: number = 0, end: number = a
 }
 
 function partitionGenres(arr: Genre[], start: number, end: number): number {
-  const pivo = arr[end].genre.toLowerCase();
+  const pivo = normalizeText(arr[end].genre);
   let i = start - 1;
 
   for (let j = start; j < end; j++) {
-    if (arr[j].genre.toLowerCase() <= pivo) {
+    if (normalizeText(arr[j].genre) <= pivo) {
       i++;
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }

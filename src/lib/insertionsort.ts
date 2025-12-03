@@ -1,5 +1,12 @@
 import { Book } from './quicksort';
 
+function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 // INSERTION SORT PARA BOOKS
 export async function insertionSortBooksAsync(
   arr: Book[],
@@ -19,10 +26,10 @@ export async function insertionSortBooksAsync(
 
   for (let i = 1; i < n; i++) {
     const chave = resultado[i];
-    const chaveTitleLower = chave.title.toLowerCase();
+    const chaveTitleNormalized = normalizeText(chave.title);
     let j = i - 1;
 
-    while (j >= 0 && resultado[j].title.toLowerCase() > chaveTitleLower) {
+    while (j >= 0 && normalizeText(resultado[j].title) > chaveTitleNormalized) {
       resultado[j + 1] = resultado[j];
       j = j - 1;
       operationsInChunk++;

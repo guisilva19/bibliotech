@@ -118,9 +118,22 @@ export default function BookModal({
 
   // Carrega dados do livro para edição
   useEffect(() => {
-    if (!isOpen || mode !== 'edit' || !bookId) {
+    if (!isOpen) return;
+
+    // Modo adicionar: sempre iniciar com formulário vazio
+    if (mode === 'create') {
+      setForm({
+        title: '',
+        author: '',
+        rating: null,
+        genres: [],
+        description: ''
+      });
+      setError(null);
       return;
     }
+
+    if (mode !== 'edit' || !bookId) return;
 
     async function fetchBook() {
       try {
@@ -184,6 +197,9 @@ export default function BookModal({
         description: form.description
       };
 
+      // Fecha o modal imediatamente após enviar (para criação/atualização)
+      onClose();
+
       const endpoint = mode === 'create' ? '/api/books' : `/api/books/${bookId}`;
       const method = mode === 'create' ? 'POST' : 'PUT';
 
@@ -201,8 +217,15 @@ export default function BookModal({
 
       await onSuccess();
 
-      // Reseta formulário e fecha modal
-      resetOnClose();
+      // Reseta formulário em memória para próxima abertura
+      setForm({
+        title: '',
+        author: '',
+        rating: null,
+        genres: [],
+        description: ''
+      });
+      setError(null);
 
       // Toast de sucesso
       toast.success(mode === 'create' ? 'Livro adicionado com sucesso.' : 'Livro atualizado com sucesso.');
@@ -218,6 +241,9 @@ export default function BookModal({
     const confirmed = window.confirm('Tem certeza que deseja deletar este livro?');
     if (!confirmed) return;
 
+    // Fecha o modal imediatamente após a confirmação
+    onClose();
+
     setError(null);
     setIsDeleting(true);
 
@@ -231,7 +257,6 @@ export default function BookModal({
       }
 
       await onSuccess();
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido ao deletar o livro.');
     } finally {
@@ -415,7 +440,8 @@ export default function BookModal({
                         style={{
                           backgroundColor: 'rgba(247, 234, 217, 0.9)',
                           borderColor: 'rgba(225, 210, 169, 0.6)',
-                          color: '#67594e'
+                          color: '#67594e',
+                          cursor: 'pointer'
                         }}
                       >
                         <span className="truncate text-left">
@@ -454,7 +480,8 @@ export default function BookModal({
                                 className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-amber-50"
                                 style={{
                                   color: '#67594e',
-                                  backgroundColor: selected ? 'rgba(97, 152, 133, 0.08)' : 'white'
+                                  backgroundColor: selected ? 'rgba(97, 152, 133, 0.08)' : 'white',
+                                  cursor: 'pointer'
                                 }}
                               >
                                 <span
@@ -485,7 +512,8 @@ export default function BookModal({
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
                       style={{
                         backgroundColor: '#fee2e2',
-                        color: '#b91c1c'
+                        color: '#b91c1c',
+                        cursor: isDeleting || isSubmitting ? 'not-allowed' : 'pointer'
                       }}
                     >
                       <HiTrash className="w-4 h-4" />
@@ -501,7 +529,8 @@ export default function BookModal({
                       className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-60"
                       style={{
                         borderColor: 'rgba(225, 210, 169, 0.8)',
-                        color: '#67594e'
+                        color: '#67594e',
+                        cursor: isSubmitting || isDeleting ? 'not-allowed' : 'pointer'
                       }}
                     >
                       Cancelar
@@ -511,7 +540,8 @@ export default function BookModal({
                       disabled={isSubmitting || isDeleting}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-transform duration-150 disabled:opacity-60"
                       style={{
-                        backgroundColor: '#619885'
+                        backgroundColor: '#619885',
+                        cursor: isSubmitting || isDeleting ? 'not-allowed' : 'pointer'
                       }}
                     >
                       <HiSave className="w-4 h-4" />
