@@ -13,6 +13,8 @@ import { insertionSortBooksAsync } from '@/lib/insertionsort';
 import { linearSearchBooks } from '@/lib/linearSearch';
 import { BookCard } from '@/components/Livros';
 import PerformanceModal from '@/components/Livros/PerformanceModal';
+import BookModal from '@/components/Livros/BookModal';
+import { HiPlus } from 'react-icons/hi';
 
 function HomeContent() {
   const { sidebarOpen } = useSidebar();
@@ -38,36 +40,39 @@ function HomeContent() {
   const [insertionSortTime, setInsertionSortTime] = useState<number | null>(null);
   const [quicksortCache, setQuicksortCache] = useState<Book[] | null>(null);
   const booksPerPage = 50;
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [bookModalMode, setBookModalMode] = useState<'create' | 'edit'>('create');
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
+
+  async function carregarLivros() {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/books', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar livros');
+      }
+
+      const data = await response.json();
+      setRawBooks(data);
+      // LIMPA O CACHE QUANDO NOVOS DADOS SÃO CARREGADOS
+      setInsertionSortCache(null);
+      setInsertionSortTime(null);
+      setQuicksortCache(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // CARREGA LIVROS APENAS UMA VEZ
   useEffect(() => {
-    async function carregarLivros() {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/books', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Erro ao carregar livros');
-        }
-
-        const data = await response.json();
-        setRawBooks(data);
-        // LIMPA O CACHE QUANDO NOVOS DADOS SÃO CARREGADOS
-        setInsertionSortCache(null);
-        setInsertionSortTime(null);
-        setQuicksortCache(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido');
-      } finally {
-        setLoading(false);
-      }
-    }
-
     if (rawBooks.length === 0) {
       carregarLivros();
     }
@@ -268,6 +273,18 @@ function HomeContent() {
     }
   }
 
+  function abrirCriacaoLivro() {
+    setBookModalMode('create');
+    setSelectedBookId(null);
+    setIsBookModalOpen(true);
+  }
+
+  function abrirEdicaoLivro(id: string) {
+    setBookModalMode('edit');
+    setSelectedBookId(id);
+    setIsBookModalOpen(true);
+  }
+
   // GERA NÚMEROS DAS PÁGINAS PARA EXIBIR
   const paginasParaExibir = useMemo(() => {
     const paginas: (number | string)[] = [];
@@ -401,7 +418,7 @@ function HomeContent() {
               {/* INPUT DE BUSCA E FILTRO */}
               {!loading && allBooks.length > 0 && (
                 <div className="space-y-4" style={{ zIndex: 100 }}>
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="max-w-xl relative flex-1 min-w-[200px]">
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -448,7 +465,18 @@ function HomeContent() {
                         )}
                       </div>
                     </div>
-                    
+                    <button
+                      type="button"
+                      onClick={abrirCriacaoLivro}
+                      className="flex items-center justify-center w-10 h-10 rounded-full shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
+                      style={{
+                        backgroundColor: '#619885',
+                        color: '#ffffff',
+                      }}
+                      aria-label="Adicionar livro"
+                    >
+                      <HiPlus className="w-5 h-5" />
+                    </button>
                   </div>
 
                   {/* SELETOR DE ALGORITMO E MÉTRICAS */}
@@ -593,7 +621,11 @@ function HomeContent() {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                   {displayedBooks.map((book) => (
-                    <BookCard key={book.id} book={book} />
+                    <BookCard
+                      key={book.id}
+                      book={book}
+                      onClick={() => abrirEdicaoLivro(book.id)}
+                    />
                   ))}
                 </div>
 
@@ -705,6 +737,16 @@ function HomeContent() {
         comparisonMetrics={comparisonMetrics}
         quicksortBooks={quicksortCache || allBooks}
         insertionSortBooks={insertionSortCache || allBooks}
+      />
+      {/* Modal de Livro (criação/edição/remoção) */}
+      <BookModal
+        isOpen={isBookModalOpen}
+        mode={bookModalMode}
+        bookId={selectedBookId ?? undefined}
+        onClose={() => setIsBookModalOpen(false)}
+        onSuccess={async () => {
+          await carregarLivros();
+        }}
       />
     </div>
   );

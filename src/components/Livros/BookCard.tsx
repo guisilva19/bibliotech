@@ -3,9 +3,10 @@ import { Book } from '@/lib/quicksort';
 
 interface BookCardProps {
   book: Book;
+  onClick?: () => void;
 }
 
-export default function BookCard({ book }: BookCardProps) {
+export default function BookCard({ book, onClick }: BookCardProps) {
   function renderizarEstrelas(rating: number | undefined) {
     // Pega o valor do rating, se não existir ou for inválido, usa 0
     const ratingValue = (typeof rating === 'number' && !isNaN(rating) && rating > 0) ? rating : 0;
@@ -65,6 +66,7 @@ export default function BookCard({ book }: BookCardProps) {
       style={{
         border: '1px solid rgba(225, 210, 169, 0.3)'
       }}
+      onClick={onClick}
     >
       <div className="relative w-full aspect-2/3 bg-gray-100 overflow-hidden group/image">
         {book.coverimg ? (
